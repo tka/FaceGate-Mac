@@ -57,15 +57,21 @@ final class AppMonitor: ObservableObject {
             self?.handleAppEvent(notification)
         }
 
-        // Observe app deactivations (switching away from an app) for "from focus" timer mode.
+        // Observe app deactivations (switching away from an app) for "from focus" timer mode,
+        // and hide locked apps so their windows aren't left visible in the background.
         deactivateObserver = center.addObserver(
             forName: NSWorkspace.didDeactivateApplicationNotification,
             object: nil,
             queue: .main
         ) { [weak self] notification in
-            guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
+            guard let self = self,
+                  let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
                   let bundleId = app.bundleIdentifier else { return }
-            self?.sessionManager.appDidBlur(bundleId)
+            self.sessionManager.appDidBlur(bundleId)
+
+            if !self.isProtectionDisabled() && self.lockedAppsManager.isLocked(bundleId) {
+                app.hide()
+            }
         }
 
         isMonitoring = true
